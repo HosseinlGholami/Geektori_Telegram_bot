@@ -4,69 +4,54 @@ from telegram.ext import (Updater, InlineQueryHandler,Filters,
 from telegram import (ReplyKeyboardMarkup, ReplyKeyboardRemove)
 
 
-GENDER, PHOTO, LOCATION, BIO = range(4)
+INSERT_BUY_ID, MAKE_SURE, PHOTO_RECIVING = range(3)
+
 
 
 def start(update, context):
-    reply_keyboard = [['آره', 'نه']]
-    txt="سلام این بات گیکتوری عه ، ما از احمد یه درخاست داریم نظر شما چیه ؟ "
+    txt="Hello " + update.effective_chat.first_name + "\nYou are talking to Geektori team \n,if you bought استیکر طرح دلخواه , pleas insert your Buy-ID?" 
+    update.message.reply_text(txt)
+    return INSERT_BUY_ID
+
+
+def InsertBuyID(update, context):
+    reply_keyboard = [["Yes","No"]]
+    user = update.message.from_user
+    txt='Are you sure   -'+ update.message.text + '-    is your Buy-ID'
     update.message.reply_text(txt,
         reply_markup=ReplyKeyboardMarkup(reply_keyboard, one_time_keyboard=True))
+   
+    logger.info("Buy-ID %s: %s", user.first_name, update.message.text)
+    return MAKE_SURE
 
-    return GENDER
-
-
-def gender(update, context):
+def MakeSure(update, context):
     user = update.message.from_user
-    txt="نظر شما هم محترمه ،یه عکس از این آقا احمد برا ما میفرستید ؟ اگر نه که /skip  بزنیم دیگه"
-    logger.info("Gender of %s: %s", user.first_name, update.message.text)
+    txt="Now Please Send Your Picture , the better way is to send it as file "
+    logger.info(" %s is  %s ,sure", user.first_name, update.message.text)
     update.message.reply_text(txt, reply_markup=ReplyKeyboardRemove() )
-
-    return PHOTO
-
-
-def photo(update, context):
-    user = update.message.from_user
-    photo_file = update.message.photo[-1].get_file()
-    photo_file.download(user.first_name +'.jpg')
-    logger.info("Photo of %s: %s", user.first_name, 'user_photo.jpg')
-    update.message.reply_text('جووووون جه جیگری هستی تو ، حالا یه لوکیشت بده ببینم کچایی اگر تمیدی هم  /skip کن')
-
-    return LOCATION
+    return PHOTO_RECIVING
 
 
-def skip_photo(update, context):
-    user = update.message.from_user
-    logger.info("User %s did not send a photo.", user.first_name)
-    update.message.reply_text('من شرط میبندم خوب چیزی هستی ، ولی حالا چس کن عکس نده ، یه لوکیشن بده ببینم کوجایی ؟/skip.')
-
-    return LOCATION
-
-
-def location(update, context):
-    user = update.message.from_user
-    user_location = update.message.location
-    logger.info("Location of %s: %f / %f", user.first_name, user_location.latitude,
-                user_location.longitude)
-    update.message.reply_text('جوووون تکون نخور الان میام خدمتت ، یه جمله بکو یادگاری به ذهنم بسپارم ')
-
-    return BIO
-
-
-def skip_location(update, context):
-    user = update.message.from_user
-    logger.info("User %s did not send a location.", user.first_name)
-    update.message.reply_text('شما از چیه ما میترسی که لوکیشن نمیدی بهمون ؟ ، یه جمله بکو یادگاری به ذهنم بسپارم')
-
-    return BIO
-
-
-def bio(update, context):
-    user = update.message.from_user
-    logger.info("Bio of %s: %s", user.first_name, update.message.text)
-    update.message.reply_text('جوووون تشکر از شما ، برای دادن این اطلاعات مفیدتون ')
-
+    
+def PhotoFileReciving(update, context):
+    try:
+        obj=context.bot.getFile(file_id=update.message.document.file_id)
+        obj.download(update.effective_chat.first_name +'.png')
+        update.message.reply_text('Thanks for Sending me this picture, we will prepare and send it ASP ')
+    except Exception as e:
+        print(str(e))
     return ConversationHandler.END
+
+def PhotoReciving(update, context):
+    try:
+        print("mamad ")
+        photo_file = update.message.photo[-1].get_file()
+        photo_file.download(update.effective_chat.first_name +'.png')
+        update.message.reply_text('Thanks for Sending me this picture, we will prepare and send it ASP ')
+    except Exception as e:
+        print(str(e))
+    return ConversationHandler.END
+
 
 
 def cancel(update, context):
@@ -77,7 +62,15 @@ def cancel(update, context):
 
     return ConversationHandler.END
 
-    
+
+
+
+def han(update , context):
+    han=''
+    context.bot.send_message(chat_id=update.effective_chat.id,text=dir(han))
+
+
+
 
 def main():
     Geektori_bot_token='1251228456:AAGiftOnmBKgC4GlPHRNzkssaTD1XTVOGBY'
@@ -91,20 +84,28 @@ def main():
         entry_points=[CommandHandler('start', start)],
 
         states={
-            GENDER: [MessageHandler(Filters.regex('^(نه|آره)$'), gender)],
+            INSERT_BUY_ID: [MessageHandler(Filters.text, InsertBuyID)],
 
-            PHOTO: [MessageHandler(Filters.photo, photo),
-                    CommandHandler('skip', skip_photo)],
+            MAKE_SURE:[MessageHandler(Filters.regex('^(Yes|No)$'), MakeSure)] ,
 
-            LOCATION: [MessageHandler(Filters.location, location),
-                       CommandHandler('skip', skip_location)],
+            PHOTO_RECIVING: [
+                MessageHandler(filters=Filters.document, callback=PhotoFileReciving,
+                             pass_chat_data=True,pass_user_data= True),
+                MessageHandler(filters=Filters.photo, callback=PhotoReciving,
+                             pass_chat_data=True,pass_user_data= True),
+                CommandHandler('cancel', cancel)
+                ]
 
-            BIO: [MessageHandler(Filters.text, bio)]
         },
 
         fallbacks=[CommandHandler('cancel', cancel)]
     )
 
+    
+    
+    # dp.add_handler(MessageHandler(filters=Filters.photo, callback=han,
+    #                          pass_chat_data=True,pass_user_data= True)
+    #                          )
     dp.add_handler(conv_handler)
 
     # log all errors
@@ -154,28 +155,28 @@ if __name__ == '__main__':
 
 
 
-import requests
-import re
+# import requests
+# import re
 
 
-def get_url():
-    contents = requests.get('https://random.dog/woof.json').json()    
-    url = contents['url']
-    return url
+# def get_url():
+#     contents = requests.get('https://random.dog/woof.json').json()    
+#     url = contents['url']
+#     return url
 
-def get_image_url():
-    allowed_extension = ['jpg','jpeg','png']
-    file_extension = ''
-    while file_extension not in allowed_extension:
-        url = get_url()
-        file_extension = re.search("([^.]*)$",url).group(1).lower()
-    return url
+# def get_image_url():
+#     allowed_extension = ['jpg','jpeg','png']
+#     file_extension = ''
+#     while file_extension not in allowed_extension:
+#         url = get_url()
+#         file_extension = re.search("([^.]*)$",url).group(1).lower()
+#     return url
 
-def bop(bot, update):
-    url = get_image_url()
-    chat_id = update.message.chat_id
-    bot.send_photo(chat_id=chat_id, photo=url)
-    print("\n\n\n\n")
+# def bop(bot, update):
+#     url = get_image_url()
+#     chat_id = update.message.chat_id
+#     bot.send_photo(chat_id=chat_id, photo=url)
+#     print("\n\n\n\n")
 
 
 
